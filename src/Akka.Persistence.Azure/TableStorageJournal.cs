@@ -36,18 +36,10 @@ namespace TableStorage.Persistence
         {
             try
             {
-                CloudTableClient tableClient = _extension.TableJournalSettings.GetClient(persistenceId);
-                CloudTable table = tableClient.GetTableReference(_extension.TableJournalSettings.TableName);
-                TableQuery<Event> query =
-                        new TableQuery<Event>().Where(
-                        TableQuery.CombineFilters(
-                                TableQuery.GenerateFilterCondition("PartitionKey",
-                                    QueryComparisons.Equal, persistenceId), TableOperators.And, 
-                                    TableQuery.GenerateFilterCondition("RowKey",
-                                QueryComparisons.GreaterThanOrEqual, Event.ToRowKey(fromSequenceNr)))
-                            );
-                IEnumerable<Event> results = table.ExecuteQuery(query);
-                
+                IEnumerable<Event> results =  _extension.TableJournalSettings
+                    .GetClient(persistenceId)
+                    .GetTableReference(_extension.TableJournalSettings.TableName)
+                    .ExecuteQuery(BuildTopVersionQuery(persistenceId, fromSequenceNr));
                 if (results.Any())
                 {
                     var highest = results.Max(t => t.SequenceNr);
@@ -69,32 +61,17 @@ namespace TableStorage.Persistence
                 long count = 0;
                 if (max > 0 && (toSequenceNr - fromSequenceNr) >= 0)
                 {
-                    CloudTableClient tableClient = _extension.TableJournalSettings.GetClient(persistenceId);
-                    CloudTable table = tableClient.GetTableReference(_extension.TableJournalSettings.TableName);
-                    TableQuery<Event> query =
-                            new TableQuery<Event>().Where(
-                                TableQuery.CombineFilters(
-                                    TableQuery.CombineFilters(
-                                            TableQuery.GenerateFilterCondition("PartitionKey",
-                                                QueryComparisons.Equal, persistenceId), TableOperators.And,
-                                                TableQuery.GenerateFilterCondition("RowKey",
-                                            QueryComparisons.GreaterThanOrEqual, Event.ToRowKey(fromSequenceNr))),
-                                    TableOperators.And,
-                                        TableQuery.GenerateFilterCondition("RowKey",
-                                            QueryComparisons.LessThanOrEqual, Event.ToRowKey(toSequenceNr))
-                                        ));
-                    
-                    IEnumerable<Event> results = table.ExecuteQuery(query);
+                    IEnumerable<Event> results = _extension.TableJournalSettings
+                        .GetClient(persistenceId)
+                        .GetTableReference(_extension.TableJournalSettings.TableName)
+                        .ExecuteQuery(BuildReplayTableQuery(persistenceId,fromSequenceNr, toSequenceNr));
 
                     foreach (Event @event in results)
                     {
-                        if (!@event.IsPermanentDelete)
-                        {
-                            var actualEvent = JsonConvert.DeserializeObject(@event.EventState, _settings);
-                            replayCallback(new Persistent(actualEvent, @event.SequenceNr, @event.AggregateId, @event.IsDeleted, Context.Self));
-                            count++;
-                            if (count == max) return;
-                        }
+                        var actualEvent = JsonConvert.DeserializeObject(@event.EventState, _settings);
+                        replayCallback(new Persistent(actualEvent, @event.SequenceNr, @event.AggregateId, @event.IsDeleted, Context.Self));
+                        count++;
+                        if (count == max) return;
                     }
                 }
             }
@@ -107,7 +84,6 @@ namespace TableStorage.Persistence
 
         protected override async Task WriteMessagesAsync(IEnumerable<IPersistentRepresentation> messages)
         {
-            
             foreach (var grouping in messages.GroupBy(x => x.PersistenceId))
             {
                 var stream = grouping.Key;
@@ -121,15 +97,16 @@ namespace TableStorage.Persistence
                 });
                 try
                 {
-                    CloudTableClient tableClient = _extension.TableJournalSettings.GetClient(stream);
-                    CloudTable table = tableClient.GetTableReference(_extension.TableJournalSettings.TableName);
                     TableBatchOperation batchOperation = new TableBatchOperation();
                     foreach(Event evt in events)
                     {
                         batchOperation.Insert(evt);
                     }
-                    
-                    IList<TableResult> results = await table.ExecuteBatchAsync(batchOperation);
+
+                    await _extension.TableJournalSettings
+                        .GetClient(stream)
+                        .GetTableReference(_extension.TableJournalSettings.TableName)
+                        .ExecuteBatchAsync(batchOperation);
                 }
                 catch(Exception ex)
                 {
@@ -143,25 +120,27 @@ namespace TableStorage.Persistence
         {
             try
             {
-                CloudTableClient tableClient = _extension.TableJournalSettings.GetClient(persistenceId);
-                CloudTable table = tableClient.GetTableReference(_extension.TableJournalSettings.TableName);
-                TableQuery<Event> query =
-                        new TableQuery<Event>().Where(
-                        TableQuery.CombineFilters(
-                                TableQuery.GenerateFilterCondition("PartitionKey",
-                                    QueryComparisons.Equal, persistenceId), TableOperators.And,
-                                    TableQuery.GenerateFilterCondition("RowKey",
-                                QueryComparisons.LessThanOrEqual, Event.ToRowKey(toSequenceNr)))
-                            );
-                IEnumerable<Event> results = table.ExecuteQuery(query).OrderByDescending(t => t.SequenceNr);
+                CloudTable table = _extension.TableJournalSettings
+                    .GetClient(persistenceId)
+                    .GetTableReference(_extension.TableJournalSettings.TableName);
+                
+                IEnumerable<Event> results = 
+                    table.ExecuteQuery(BuildDeleteTableQuery(persistenceId, toSequenceNr))
+                    .OrderByDescending(t => t.SequenceNr);
                 if (results.Count() > 0)
                 {
                     TableBatchOperation batchOperation = new TableBatchOperation();
                     foreach (Event s in results)
                     {
                         s.IsDeleted = true;
-                        s.IsPermanentDelete = isPermanent;
-                        batchOperation.Replace(s);
+                        if(isPermanent)
+                        {
+                            batchOperation.Delete(s);
+                        }
+                        else
+                        {
+                            batchOperation.Replace(s);
+                        }
                     }
                     table.ExecuteBatch(batchOperation);
                 }
@@ -174,6 +153,44 @@ namespace TableStorage.Persistence
             }
         }
 
+        private static TableQuery<Event> BuildDeleteTableQuery(string persistenceId, long sequence)
+        {
+            return new TableQuery<Event>().Where(
+                        TableQuery.CombineFilters(
+                                TableQuery.GenerateFilterCondition("PartitionKey",
+                                    QueryComparisons.Equal, persistenceId), TableOperators.And,
+                                    TableQuery.GenerateFilterCondition("RowKey",
+                                QueryComparisons.LessThanOrEqual, Event.ToRowKey(sequence)))
+                            );
+        }
+
+        private static TableQuery<Event> BuildReplayTableQuery(string persistenceId, long fromSequenceNr, long toSequenceNr)
+        {
+            return new TableQuery<Event>().Where(
+                                TableQuery.CombineFilters(
+                                    TableQuery.CombineFilters(
+                                            TableQuery.GenerateFilterCondition("PartitionKey",
+                                                QueryComparisons.Equal, persistenceId), TableOperators.And,
+                                                TableQuery.GenerateFilterCondition("RowKey",
+                                            QueryComparisons.GreaterThanOrEqual, Event.ToRowKey(fromSequenceNr))),
+                                    TableOperators.And,
+                                        TableQuery.GenerateFilterCondition("RowKey",
+                                            QueryComparisons.LessThanOrEqual, Event.ToRowKey(toSequenceNr))
+                                        ));
+        }
+
+        private static TableQuery<Event> BuildTopVersionQuery(string persistenceId, long fromSequenceNr)
+        {
+            return new TableQuery<Event>().Where(
+                        TableQuery.CombineFilters(
+                                TableQuery.GenerateFilterCondition("PartitionKey",
+                                    QueryComparisons.Equal, persistenceId), TableOperators.And,
+                                    TableQuery.GenerateFilterCondition("RowKey",
+                                QueryComparisons.GreaterThanOrEqual, Event.ToRowKey(fromSequenceNr)))
+                            );
+        }
+
+
         #region Internal Event class for Azure TableEntity
 
         private class Event : TableEntity
@@ -184,7 +201,6 @@ namespace TableStorage.Persistence
             public long SequenceNr { get; set; }
             public string EventState { get; set; }
             public bool IsDeleted { get; set; }
-            public bool IsPermanentDelete { get; set; }
 
             private JsonSerializerSettings _settings;
 
