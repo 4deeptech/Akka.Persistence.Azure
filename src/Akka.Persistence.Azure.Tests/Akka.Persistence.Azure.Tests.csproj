@@ -8,8 +8,8 @@
     <ProjectGuid>{CE0D58EB-56E1-4F32-BEF7-E56DE4FDC78B}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Akka.Persistence.TableStorage.Tests</RootNamespace>
-    <AssemblyName>Akka.Persistence.TableStorage.Tests</AssemblyName>
+    <RootNamespace>Akka.Persistence.Azure.Tests</RootNamespace>
+    <AssemblyName>Akka.Persistence.Azure.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <NuGetPackageImportStamp>4ccfba65</NuGetPackageImportStamp>
@@ -32,11 +32,13 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Akka">
-      <HintPath>..\..\packages\Akka.1.0.1\lib\net45\Akka.dll</HintPath>
+    <Reference Include="Akka, Version=1.0.4.12, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\packages\Akka.1.0.4\lib\net45\Akka.dll</HintPath>
     </Reference>
-    <Reference Include="Akka.Logger.NLog">
-      <HintPath>..\..\packages\Akka.Logger.NLog.1.0.1\lib\net45\Akka.Logger.NLog.dll</HintPath>
+    <Reference Include="Akka.Logger.NLog, Version=1.0.4.12, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\packages\Akka.Logger.NLog.1.0.4\lib\net45\Akka.Logger.NLog.dll</HintPath>
     </Reference>
     <Reference Include="Akka.Persistence">
       <HintPath>..\..\packages\Akka.Persistence.1.0.1-pre1504282013\lib\net45\Akka.Persistence.dll</HintPath>
@@ -44,11 +46,13 @@
     <Reference Include="Akka.Persistence.TestKit">
       <HintPath>..\..\packages\Akka.Persistence.TestKit.1.0.1-pre1504282013\lib\net45\Akka.Persistence.TestKit.dll</HintPath>
     </Reference>
-    <Reference Include="Akka.TestKit">
-      <HintPath>..\..\packages\Akka.TestKit.1.0.1\lib\net45\Akka.TestKit.dll</HintPath>
+    <Reference Include="Akka.TestKit, Version=1.0.4.12, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\packages\Akka.TestKit.1.0.4\lib\net45\Akka.TestKit.dll</HintPath>
     </Reference>
-    <Reference Include="Akka.TestKit.Xunit">
-      <HintPath>..\..\packages\Akka.TestKit.Xunit.1.0.1\lib\net45\Akka.TestKit.Xunit.dll</HintPath>
+    <Reference Include="Akka.TestKit.Xunit, Version=1.0.4.12, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\packages\Akka.TestKit.Xunit.1.0.4\lib\net45\Akka.TestKit.Xunit.dll</HintPath>
     </Reference>
     <Reference Include="Google.ProtocolBuffers">
       <HintPath>..\..\packages\Google.ProtocolBuffers.2.4.1.521\lib\net40\Google.ProtocolBuffers.dll</HintPath>
@@ -78,7 +82,7 @@
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=7.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\Newtonsoft.Json.7.0.1-beta3\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <HintPath>..\..\packages\Newtonsoft.Json.7.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="NLog">
       <HintPath>..\..\packages\NLog.3.0.0.0\lib\net45\NLog.dll</HintPath>

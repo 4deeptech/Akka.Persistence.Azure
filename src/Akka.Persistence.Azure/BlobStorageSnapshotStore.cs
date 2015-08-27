@@ -12,7 +12,6 @@ using Akka.Persistence.Serialization;
 using Akka.Persistence.Snapshot;
 using Akka.Serialization;
 using Newtonsoft.Json;
-using Microsoft.WindowsAzure.Storage.Table;
 using Akka.Persistence.Azure;
 using Microsoft.WindowsAzure.Storage.Blob;
 using System.Text.RegularExpressions;
