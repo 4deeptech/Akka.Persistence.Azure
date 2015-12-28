@@ -1,20 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.Runtime.Serialization.Formatters;
-using System.Text;
 using System.Threading.Tasks;
-using Akka.Actor;
 using Akka.Event;
 using Akka.Persistence;
-using Akka.Persistence.Journal;
-using Akka.Serialization;
-using Newtonsoft.Json;
-using System.Configuration;
-using System.Threading;
-using Microsoft.WindowsAzure.Storage.Table;
 using Akka.Persistence.Azure;
+using Akka.Persistence.Journal;
+using Microsoft.WindowsAzure.Storage.Table;
+using Newtonsoft.Json;
 
 namespace TableStorage.Persistence
 {
@@ -69,7 +62,7 @@ namespace TableStorage.Persistence
                     foreach (Event @event in results)
                     {
                         var actualEvent = JsonConvert.DeserializeObject(@event.EventState, _settings);
-                        replayCallback(new Persistent(actualEvent, @event.SequenceNr, @event.AggregateId, @event.IsDeleted, Context.Self));
+                        replayCallback(new Persistent(actualEvent, @event.SequenceNr, @event.Type, @event.AggregateId, @event.IsDeleted, Context.Self));
                         count++;
                         if (count == max) return;
                     }
@@ -116,7 +109,7 @@ namespace TableStorage.Persistence
             }
         }
 
-        protected override Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr, bool isPermanent)
+        protected override async Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr, bool isPermanent)
         {
             try
             {
@@ -127,7 +120,7 @@ namespace TableStorage.Persistence
                 IEnumerable<Event> results = 
                     table.ExecuteQuery(BuildDeleteTableQuery(persistenceId, toSequenceNr))
                     .OrderByDescending(t => t.SequenceNr);
-                if (results.Count() > 0)
+                if (results.Any())
                 {
                     TableBatchOperation batchOperation = new TableBatchOperation();
                     foreach (Event s in results)
@@ -142,9 +135,8 @@ namespace TableStorage.Persistence
                             batchOperation.Replace(s);
                         }
                     }
-                    table.ExecuteBatch(batchOperation);
+                    await table.ExecuteBatchAsync(batchOperation);
                 }
-                return Task.FromResult<object>(null);
             }
             catch (Exception ex)
             {

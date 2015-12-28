@@ -77,7 +77,7 @@ namespace TableStorage.Persistence
         protected override void Saved(SnapshotMetadata metadata)
         {}
 
-        protected override void Delete(SnapshotMetadata metadata)
+        protected override async Task DeleteAsync(SnapshotMetadata metadata)
         {
             try
             {
@@ -94,7 +94,7 @@ namespace TableStorage.Persistence
             }
         }
 
-        protected override void Delete(string persistenceId, SnapshotSelectionCriteria criteria)
+        protected override async Task DeleteAsync(string persistenceId, SnapshotSelectionCriteria criteria)
         {
             try
             {
